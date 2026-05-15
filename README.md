@@ -1,223 +1,217 @@
-# Local Wallet Vault
+# Local Wallet Vault PWA
 
-A frontend-only Progressive Web App (PWA) that stores encrypted wallet-related data locally in the browser using WebAuthn PRF for key derivation and OPFS for storage.
+A proof-of-concept Progressive Web App that stores a local encrypted copy of wallet-related information in the browser using WebAuthn PRF and OPFS.
 
-## ⚠️ Important Security Warnings
+## ⚠️ Important Warnings
 
-**This is a proof-of-concept. Do not store production seed phrases, private keys, or high-value secrets in this vault.**
+**This is a proof-of-concept application. Do not store production seed phrases, private keys, or high-value secrets.**
 
-### What This Protects Against
+- This vault is stored only in your browser profile. There is no server backup.
+- If you clear site data, lose your browser profile, or delete your passkey, you may lose access unless you have exported a backup.
+- This PoC does not protect against XSS, malicious same-origin JavaScript, compromised dependencies, or browser/OS compromise.
+- Do not store production seed phrases or high-value private keys.
 
-- **Offline file theft**: Data is encrypted; DEK is wrapped under PRF-derived KEK
-- **Browser storage inspection**: Only ciphertext is stored in OPFS
-- **Accidental file exposure**: OPFS files are not user-visible files
-- **Tampered ciphertext**: AES-GCM authentication detects tampering
-- **Stolen backup without key**: Backup remains encrypted without the backup key
+## Features
 
-### What This Does NOT Protect Against
+- **WebAuthn PRF**: Uses the Pseudo-Random Function extension for key derivation
+- **AES-GCM-256 Encryption**: All data is encrypted at rest
+- **OPFS Storage**: Origin Private File System for secure local storage
+- **Passkey Protected**: Unlock with biometrics or security key
+- **No Backend Required**: Fully local-first application
+- **PWA Support**: Installable and works offline after first load
+- **Export/Import**: Backup your vault with encrypted export files
 
-- **XSS on the same origin**: Malicious JavaScript can steal plaintext after unlock
-- **Malicious future deployment**: A compromised deployment can request PRF and decrypt
-- **Compromised dependency**: Malicious code in dependencies is not mitigated
-- **Compromised browser/OS/extension**: Platform compromise is not mitigated
-- **Lost browser profile without backup**: Data is lost
-- **Deleted passkey without backup**: Data may be unrecoverable
-- **Rollback attacks**: Older valid ciphertext can be restored
+## Technology Stack
+
+- **Frontend**: React 19 + TypeScript
+- **Build Tool**: Vite 8 with Rolldown
+- **UI Components**: shadcn/ui + Tailwind CSS
+- **PWA**: vite-plugin-pwa
+- **Crypto**: Web Crypto API (AES-GCM-256, HKDF-SHA-256)
+- **Storage**: OPFS (Origin Private File System)
+- **Auth**: WebAuthn with PRF extension
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+ or Node.js 22+
+- A browser that supports WebAuthn PRF (Chrome 127+, Firefox 125+, Edge 127+)
+- HTTPS or localhost for secure context
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd local-wallet-vault-pwa
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist` directory.
 
 ## Architecture
 
+### Key Flow
+
 ```
-User verification (WebAuthn/passkey)
+User verification through WebAuthn/passkey
         ↓
 WebAuthn PRF output
         ↓
-HKDF-SHA-256 derived key-encryption key (KEK)
+HKDF-derived key-encryption key
         ↓
-Wrapped local data-encryption key (DEK)
+Wrapped local data-encryption key
         ↓
 AES-GCM encrypted vault records
         ↓
 OPFS local browser storage
 ```
 
-## Technology Stack
-
-| Area | Technology |
-|------|------------|
-| UI Framework | React 18.x |
-| Build Tool | Vite 5.x |
-| Language | TypeScript 5.x |
-| UI Kit | shadcn/ui |
-| PWA Plugin | vite-plugin-pwa |
-| Crypto | WebCrypto API |
-| Auth | WebAuthn with PRF extension |
-| Storage | OPFS |
-
-## Project Structure
+### OPFS Structure
 
 ```
-local-wallet-vault-pwa/
-├── public/
-│   ├── manifest.json
-│   └── icons/
-├── src/
-│   ├── app/
-│   │   └── App.tsx
-│   ├── components/
-│   │   ├── ui/           # shadcn components
-│   │   └── layout/       # Layout components
-│   ├── features/
-│   │   ├── capability-check/
-│   │   ├── vault/
-│   │   ├── wallet-records/
-│   │   └── backup/
-│   ├── lib/
-│   │   ├── base64url.ts
-│   │   ├── crypto/
-│   │   │   ├── aesGcm.ts
-│   │   │   ├── hkdf.ts
-│   │   │   ├── keyWrap.ts
-│   │   │   └── envelopes.ts
-│   │   ├── webauthn/
-│   │   │   ├── prf.ts
-│   │   │   └── capability.ts
-│   │   ├── opfs/
-│   │   │   ├── opfsRoot.ts
-│   │   │   └── vaultStore.ts
-│   │   └── types/
-│   │       ├── vault.ts
-│   │       ├── envelope.ts
-│   │       └── backup.ts
-│   ├── pages/
-│   └── main.tsx
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── tailwind.config.js
+/opfs-root/
+  local-wallet-vault/
+    v1/
+      metadata.json       # Non-secret vault metadata
+      wrapped-keys.json   # Wrapped DEK envelope
+      manifest.enc.json   # Encrypted vault manifest
+      records/
+        <record-id>.enc.json  # Encrypted wallet records
 ```
 
-## Getting Started
+### Security Model
 
-### Prerequisites
+**Threats Mitigated:**
+- Offline file theft: Data is encrypted; DEK is wrapped under PRF-derived KEK
+- Browser storage inspection: Only ciphertext is stored in OPFS
+- Accidental file exposure: OPFS files are not user-visible
+- Tampered ciphertext: AES-GCM authentication detects tampering
+- Stolen backup without key: Backup remains encrypted
 
-- Node.js 18.x or higher
-- npm or pnpm
+**Threats NOT Mitigated:**
+- XSS on the same origin
+- Malicious future deployment on the same origin
+- Compromised dependency
+- Compromised browser/OS/extension
+- Lost browser profile without backup
+- Deleted passkey without backup
+- Rollback attacks
 
-### Installation
+## Development
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run test` - Run tests in watch mode
+- `npm run test:run` - Run tests once
+- `npm run lint` - Lint code
+
+### Project Structure
+
+```
+src/
+  app/
+    App.tsx              # Main app component
+  components/
+    ui/                  # shadcn/ui components
+    layout/               # Layout components
+    BackupDialog.tsx     # Export backup dialog
+    ImportBackupDialog.tsx # Import backup dialog
+    WalletRecordForm.tsx # Wallet record form
+  features/
+    capability-check/    # Browser capability checking
+  lib/
+    base64url.ts         # Base64url utilities
+    crypto/
+      aesGcm.ts          # AES-GCM encryption
+      hkdf.ts            # HKDF key derivation
+      keyWrap.ts         # DEK wrap/unwrap
+    opfs/
+      opfsRoot.ts        # OPFS utilities
+      vaultStore.ts      # Vault storage operations
+    security/
+      lockTimer.ts       # Auto-lock timer
+    types/               # TypeScript types
+    vault/
+      vaultCreation.ts   # Vault creation logic
+      vaultUnlock.ts     # Vault unlock logic
+      vaultBackup.ts     # Backup/export logic
+      VaultContext.tsx   # React context for vault state
+    webauthn/
+      capability.ts      # WebAuthn capability detection
+      prf.ts             # PRF utilities
+  pages/
+    HomePage.tsx         # Landing page
+    CapabilityCheckPage.tsx # Capability check
+    CreateVaultPage.tsx  # Vault creation
+    UnlockPage.tsx       # Vault unlock
+    DashboardPage.tsx    # Main dashboard
+    ThreatModelPage.tsx  # Security information
+```
+
+## Testing
+
+The project includes tests for:
+
+- Base64url encoding/decoding
+- AES-GCM encryption/decryption
+- HKDF key derivation
+- Key wrap/unwrap operations
+
+Run tests with:
 
 ```bash
-cd local-wallet-vault-pwa
-npm install
-```
-
-### Development
-
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
-npm run build
-```
-
-### Test
-
-```bash
-npm run test
-```
-
-## Features
-
-### Milestone 1: Project Skeleton ✅
-
-- Vite React TypeScript app
-- shadcn/ui initialized
-- PWA manifest and service worker
-- Basic route/state layout
-
-### Milestone 2: Capability Screen
-
-- WebAuthn detection
-- PRF capability attempt
-- OPFS detection
-- WebCrypto detection
-- Persistent storage request
-
-### Milestone 3: Crypto Core
-
-- Base64url utilities
-- HKDF helper
-- AES-GCM envelope helper
-- DEK wrap/unwrap
-- Tests
-
-### Milestone 4: OPFS Storage
-
-- OPFS adapter
-- Versioned metadata file
-- Encrypted manifest file
-- Atomic-ish write strategy
-- Storage estimate display
-
-### Milestone 5: WebAuthn PRF Vault Create/Unlock
-
-- Credential creation
-- PRF evaluation
-- KEK derivation
-- Empty vault initialization
-- Unlock flow
-
-### Milestone 6: Wallet Records
-
-- Add/edit/delete wallet record
-- Encrypted save
-- Search/filter in unlocked memory
-
-### Milestone 7: Backup and Recovery
-
-- Encrypted export
-- One-time backup key display
-- Import and rewrap under new passkey
-
-### Milestone 8: Security Hardening
-
-- CSP and headers
-- No third-party scripts
-- Lock timer
-- Threat model page
-- Negative tests
-
-## Security Headers
-
-For production deployment, configure these headers:
-
-```
-Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'; img-src 'self' data:; style-src 'self'; worker-src 'self'; manifest-src 'self'; require-trusted-types-for 'script'
-Permissions-Policy: publickey-credentials-create=(self), publickey-credentials-get=(self)
-Referrer-Policy: no-referrer
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Resource-Policy: same-origin
-X-Content-Type-Options: nosniff
+npm run test:run
 ```
 
 ## Browser Support
 
 This PWA requires:
 
-- HTTPS or localhost
-- WebAuthn with PRF extension support
-- OPFS (Origin Private File System)
-- WebCrypto API
+- HTTPS or localhost (secure context)
+- WebAuthn support
+- WebAuthn PRF extension support
+- OPFS support
+- WebCrypto API support
 
-Tested browsers:
-- Chrome 108+ (with PRF support)
-- Edge 108+ (with PRF support)
+### Tested Browsers
+
+- Chrome 127+ (recommended)
+- Firefox 125+
+- Edge 127+
+
+## Security Headers
+
+For production deployment, configure these headers:
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; require-trusted-types-for 'script'
+Permissions-Policy: publickey-credentials-create=(self), publickey-credentials-get=(self)
+Referrer-Policy: no-referrer
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+```
 
 ## License
 
-MIT
+This is a proof-of-concept project. Use at your own risk.
 
 ## References
 

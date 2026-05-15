@@ -35,7 +35,8 @@ export async function checkPRFAvailable(): Promise<boolean> {
   if (typeof PublicKeyCredential.getClientCapabilities === 'function') {
     try {
       const capabilities = await PublicKeyCredential.getClientCapabilities();
-      return capabilities?.prf === true;
+      // The capability key is "extension:prf" not "prf"
+      return capabilities?.['extension:prf'] === true;
     } catch {
       return false;
     }

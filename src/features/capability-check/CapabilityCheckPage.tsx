@@ -54,17 +54,41 @@ export function CapabilityCheckPage() {
 
     // Check WebAuthn PRF
     let hasPRF = false;
-    if (hasWebAuthn && typeof PublicKeyCredential.getClientCapabilities === 'function') {
-      try {
-        const capabilities = await PublicKeyCredential.getClientCapabilities();
-        hasPRF = capabilities?.prf === true;
-      } catch {
-        hasPRF = false;
+    let prfStatus: 'supported' | 'unknown' | 'unsupported' = 'unsupported';
+    
+    console.log('[CapabilityCheck] Checking PRF, hasWebAuthn:', hasWebAuthn);
+    console.log('[CapabilityCheck] PublicKeyCredential exists:', typeof PublicKeyCredential !== 'undefined');
+    console.log('[CapabilityCheck] getClientCapabilities exists:', typeof PublicKeyCredential.getClientCapabilities);
+    
+    if (hasWebAuthn) {
+      if (typeof PublicKeyCredential.getClientCapabilities === 'function') {
+        try {
+          console.log('[CapabilityCheck] Calling getClientCapabilities...');
+          const capabilities = await PublicKeyCredential.getClientCapabilities();
+          console.log('[CapabilityCheck] getClientCapabilities result:', capabilities);
+          // The capability key is "extension:prf" not "prf"
+          hasPRF = capabilities?.['extension:prf'] === true;
+          prfStatus = hasPRF ? 'supported' : 'unsupported';
+        } catch (error) {
+          console.log('[CapabilityCheck] getClientCapabilities error:', error);
+          prfStatus = 'unknown';
+          hasPRF = true; // Assume available, will verify during credential creation
+        }
+      } else {
+        // Fallback: PRF might be available, will be verified during credential creation
+        // This is needed because getClientCapabilities is a new API (Chrome 127+)
+        // Firefox 125+ supports PRF but doesn't have getClientCapabilities yet
+        console.log('[CapabilityCheck] getClientCapabilities not available, using fallback');
+        prfStatus = 'unknown';
+        hasPRF = true;
       }
     }
+    console.log('[CapabilityCheck] Final PRF status:', { hasPRF, prfStatus });
     results.push({
       name: 'WebAuthn PRF',
-      description: 'Pseudo-random function extension',
+      description: prfStatus === 'unknown'
+        ? 'PRF support will be verified during vault creation'
+        : 'Pseudo-random function extension',
       supported: hasPRF,
       required: true,
     });

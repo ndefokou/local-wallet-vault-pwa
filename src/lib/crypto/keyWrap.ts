@@ -3,10 +3,8 @@
  */
 
 import { generateAESKey, importAESKey, exportAESKey, encryptAESGCM, decryptAESGCM } from './aesGcm';
-import { base64urlEncode, base64urlDecode, generateRandomBytes } from '../base64url';
+import { base64urlEncode, base64urlDecode } from '../base64url';
 import type { CipherEnvelopeV1 } from '../types/envelope';
-
-const WRAP_NONCE_LENGTH = 12;
 
 /**
  * Wrap a Data Encryption Key (DEK) with a Key Encryption Key (KEK)
@@ -27,11 +25,8 @@ export async function wrapDEK(
   };
   const aadBytes = new TextEncoder().encode(JSON.stringify(aad));
   
-  // Generate nonce
-  const nonce = generateRandomBytes(WRAP_NONCE_LENGTH);
-  
-  // Encrypt the DEK
-  const { ciphertext } = await encryptAESGCM(kek, dekBytes, aadBytes);
+  // Encrypt the DEK - encryptAESGCM generates and returns the nonce
+  const { ciphertext, nonce } = await encryptAESGCM(kek, dekBytes, aadBytes);
   
   return {
     magic: 'LWV_ENVELOPE',

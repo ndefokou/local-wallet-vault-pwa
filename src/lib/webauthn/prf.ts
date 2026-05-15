@@ -35,10 +35,12 @@ export async function createCredentialWithPRF(
       { type: 'public-key', alg: -257 }, // RS256
     ],
     authenticatorSelection: {
-      authenticatorAttachment: 'platform',
+      // Allow both platform (built-in) and cross-platform (security key) authenticators
+      // by not specifying authenticatorAttachment
       userVerification: USER_VERIFICATION,
     },
-    attestation: 'direct',
+    // Don't require attestation - it's not needed for this use case
+    attestation: 'none',
     extensions: {
       prf: {},
     },

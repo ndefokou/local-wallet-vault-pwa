@@ -2,8 +2,12 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useVault } from '@/lib/vault';
+import { ImportBackupDialog } from '@/components/ImportBackupDialog';
 
 export function HomePage() {
+  const { state } = useVault();
+
   return (
     <div className="space-y-6">
       <div className="text-center space-y-4">
@@ -59,11 +63,33 @@ export function HomePage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Link to="/capability-check">
-          <Button size="lg" className="w-full sm:w-auto">
-            Get Started
-          </Button>
-        </Link>
+        {(state.status === 'locked' && state.hasVault) || state.status === 'unlocked' ? (
+          <>
+            <Link to="/unlock">
+              <Button size="lg" className="w-full sm:w-auto">
+                Unlock Vault
+              </Button>
+            </Link>
+            <Link to="/capability-check">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                Check Capabilities
+              </Button>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link to="/capability-check">
+              <Button size="lg" className="w-full sm:w-auto">
+                Get Started
+              </Button>
+            </Link>
+            <ImportBackupDialog
+              trigger={<Button variant="outline" size="lg" className="w-full sm:w-auto">
+                Import Backup
+              </Button>}
+            />
+          </>
+        )}
         <Link to="/threat-model">
           <Button variant="outline" size="lg" className="w-full sm:w-auto">
             View Security Model
