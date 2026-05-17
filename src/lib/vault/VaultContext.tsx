@@ -2,14 +2,13 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, ty
 import type { VaultMetadata } from '../types/backup';
 import type { VaultPlaintextV1, WalletRecord } from '../types/vault';
 import { loadVaultMetadata, vaultExists, saveManifest } from '../opfs/vaultStore';
-import { unlockVault as unlockVaultCore } from './vaultUnlock';
-import { createEnvelope } from '../crypto/aesGcm';
+import { unlockVault as unlockVaultCore, encryptRecord } from './vaultWasm';
 import { LockTimer, ActivityTracker } from '../security/lockTimer';
 
 export type VaultState = 
   | { status: 'locked'; hasVault: boolean }
   | { status: 'unlocking'; hasVault: true }
-  | { status: 'unlocked'; vault: VaultPlaintextV1; dek: CryptoKey }
+  | { status: 'unlocked'; vault: VaultPlaintextV1; dek: Uint8Array }
   | { status: 'error'; error: string };
 
 interface VaultContextValue {
@@ -29,7 +28,7 @@ const VaultContext = createContext<VaultContextValue | null>(null);
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<VaultState>({ status: 'locked', hasVault: false });
   const [metadata, setMetadata] = useState<VaultMetadata | null>(null);
-  const [dek, setDek] = useState<CryptoKey | null>(null);
+  const [dek, setDek] = useState<Uint8Array | null>(null);
   const [vault, setVault] = useState<VaultPlaintextV1 | null>(null);
   
   // Lock timer refs
@@ -101,10 +100,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     try {
       const result = await unlockVaultCore();
       
-      if (result.success && result.vault && result.dek && result.metadata) {
+      if (result.success && result.vault && result.dek) {
         setVault(result.vault);
         setDek(result.dek);
-        setMetadata(result.metadata);
+        // Load metadata separately from OPFS
+        const meta = await loadVaultMetadata();
+        setMetadata(meta);
         setState({ status: 'unlocked', vault: result.vault, dek: result.dek });
       } else {
         setState({ status: 'locked', hasVault: true });
@@ -137,26 +138,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       throw new Error('Vault is not unlocked');
     }
 
-    const manifestEnvelope = await createEnvelope(
-      dek,
-      new TextEncoder().encode(JSON.stringify(updatedVault)),
-      metadata.vaultId,
-      'manifest'
-    );
-
-    await saveManifest(manifestEnvelope);
-    setVault(updatedVault);
+    // Encrypt and save manifest using WASM
+    const plaintext = new TextEncoder().encode(JSON.stringify(updatedVault));
+    const result = await encryptRecord(dek, plaintext, metadata.vaultId, 'manifest');
+    
+    if (result.success && result.data) {
+      const envelope = JSON.parse(result.data);
+      await saveManifest(envelope);
+      setVault(updatedVault);
+    } else {
+      throw new Error(result.error || 'Failed to save vault');
+    }
   }, [dek, metadata]);
 
   const addWallet = useCallback(async (wallet: Omit<WalletRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (state.status !== 'unlocked' || !vault) {
+    if (!dek || !metadata || !vault) {
       throw new Error('Vault is not unlocked');
     }
 
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const newWallet: WalletRecord = {
       ...wallet,
-      id: crypto.randomUUID(),
+      id,
       createdAt: now,
       updatedAt: now,
     };
@@ -168,10 +172,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     };
 
     await saveVault(updatedVault);
-  }, [state.status, vault, saveVault]);
+  }, [dek, metadata, vault, saveVault]);
 
   const updateWallet = useCallback(async (id: string, updates: Partial<WalletRecord>) => {
-    if (state.status !== 'unlocked' || !vault) {
+    if (!dek || !metadata || !vault) {
       throw new Error('Vault is not unlocked');
     }
 
@@ -187,10 +191,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     };
 
     await saveVault(updatedVault);
-  }, [state.status, vault, saveVault]);
+  }, [dek, metadata, vault, saveVault]);
 
   const deleteWallet = useCallback(async (id: string) => {
-    if (state.status !== 'unlocked' || !vault) {
+    if (!dek || !metadata || !vault) {
       throw new Error('Vault is not unlocked');
     }
 
@@ -204,28 +208,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     };
 
     await saveVault(updatedVault);
-  }, [state.status, vault, saveVault]);
+  }, [dek, metadata, vault, saveVault]);
+
+  const value: VaultContextValue = {
+    state,
+    metadata,
+    unlock,
+    lock,
+    createVault,
+    addWallet,
+    updateWallet,
+    deleteWallet,
+    refreshState,
+  };
 
   return (
-    <VaultContext.Provider
-      value={{
-        state,
-        metadata,
-        unlock,
-        lock,
-        createVault,
-        addWallet,
-        updateWallet,
-        deleteWallet,
-        refreshState,
-      }}
-    >
+    <VaultContext.Provider value={value}>
       {children}
     </VaultContext.Provider>
   );
 }
 
-export function useVault() {
+export function useVault(): VaultContextValue {
   const context = useContext(VaultContext);
   if (!context) {
     throw new Error('useVault must be used within a VaultProvider');

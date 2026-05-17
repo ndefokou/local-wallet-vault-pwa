@@ -29,5 +29,14 @@ npm-debug.log*
 # Testing
 coverage/
 
+# Rust/WASM
+core/target/
+src/lib/wasm/pkg/
+pkg/
+*.wasm
+
+# Rust
+Cargo.lock
+
 # PWA
 dev-dist/

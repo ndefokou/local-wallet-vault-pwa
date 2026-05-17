@@ -1,18 +1,19 @@
 /**
- * Base64url encoding/decoding utilities
- * Used for encoding binary data in a URL-safe format
+ * Base64URL encoding/decoding utilities for browser APIs
+ *
+ * This is a minimal implementation for WebAuthn and OPFS operations.
+ * These need synchronous operations that don't depend on WASM initialization.
  */
 
 /**
  * Encode a Uint8Array to base64url string
  */
-export function base64urlEncode(data: Uint8Array | ArrayBuffer): string {
-  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-  const binString = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
-  return btoa(binString)
+export function base64urlEncode(data: Uint8Array): string {
+  const base64 = btoa(String.fromCharCode(...data));
+  return base64
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+    .replace(/=+$/, '');
 }
 
 /**
@@ -22,21 +23,13 @@ export function base64urlDecode(str: string): Uint8Array {
   const base64 = str
     .replace(/-/g, '+')
     .replace(/_/g, '/');
-  
-  // Add padding if needed
-  const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-  const paddedBase64 = base64 + padding;
-  
-  const binString = atob(paddedBase64);
-  const bytes = new Uint8Array(binString.length);
-  for (let i = 0; i < binString.length; i++) {
-    bytes[i] = binString.charCodeAt(i);
-  }
-  return bytes;
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
 /**
- * Generate cryptographically random bytes
+ * Generate random bytes
  */
 export function generateRandomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));

@@ -1,11 +1,19 @@
+/**
+ * Vault module exports
+ */
 export { VaultProvider, useVault } from './VaultContext';
-export { createVault, type CreateVaultResult } from './vaultCreation';
-export { unlockVault, type UnlockResult } from './vaultUnlock';
 export {
+  init,
+  createVault,
+  unlockVault,
+  saveWalletRecord,
+  loadWalletRecord,
+  generateDEK,
+  hasVault,
+  getVaultMetadata,
+  encryptRecord,
   createBackup,
-  importBackup,
-  generateBackupKey,
   downloadBackup,
-  type BackupResult,
-  type ImportResult
-} from './vaultBackup';
+  importBackup
+} from './vaultWasm';
+export type { CreateVaultResult, UnlockVaultResult } from './vaultWasm';

@@ -10,17 +10,18 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { createBackup, downloadBackup } from '@/lib/vault';
+import { downloadBackup, encryptRecord } from '@/lib/vault';
 import type { VaultPlaintextV1 } from '@/lib/types/vault';
 import type { VaultMetadata } from '@/lib/types/backup';
 
 interface BackupDialogProps {
   vault: VaultPlaintextV1;
   metadata: VaultMetadata | null;
+  dek: Uint8Array | null;
   trigger?: React.ReactNode;
 }
 
-export function BackupDialog({ vault, metadata, trigger }: BackupDialogProps) {
+export function BackupDialog({ vault, metadata, dek, trigger }: BackupDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<'confirm' | 'key' | 'done'>('confirm');
   const [backupKey, setBackupKey] = useState<string | null>(null);
@@ -32,20 +33,39 @@ export function BackupDialog({ vault, metadata, trigger }: BackupDialogProps) {
       setError('Vault metadata not available');
       return;
     }
+    if (!dek) {
+      setError('Vault is locked. Please unlock first.');
+      return;
+    }
 
     setIsCreating(true);
     setError(null);
 
     try {
-      const result = await createBackup(vault, metadata);
+      // Create backup envelope
+      const vaultJson = JSON.stringify(vault);
+      const plaintext = new TextEncoder().encode(vaultJson);
+      const result = await encryptRecord(dek, plaintext, metadata.vaultId, 'backup');
       
-      if (result.success && result.backupKey && result.backupData) {
-        setBackupKey(result.backupKey);
-        downloadBackup(result.backupData, metadata.vaultId);
-        setStep('key');
-      } else {
+      if (!result.success || !result.data) {
         setError(result.error || 'Failed to create backup');
+        return;
       }
+      
+      const envelope = JSON.parse(result.data);
+      
+      // Create backup package
+      const backup = {
+        version: '1.0',
+        metadata,
+        envelope,
+        createdAt: new Date().toISOString(),
+      };
+      
+      const backupData = JSON.stringify(backup);
+      setBackupKey(backupData);
+      downloadBackup(backupData, `backup-${metadata.vaultId}.json`);
+      setStep('key');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {

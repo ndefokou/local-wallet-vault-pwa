@@ -286,7 +286,7 @@ export function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BackupDialog vault={vault} metadata={metadata} />
+              <BackupDialog vault={vault} metadata={metadata} dek={state.dek} />
             </CardContent>
           </Card>
 

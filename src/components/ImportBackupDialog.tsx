@@ -12,14 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { importBackup } from '@/lib/vault';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { importBackup, generateDEK } from '@/lib/vault';
 import { saveVaultMetadata, saveWrappedKeys, saveManifest } from '@/lib/opfs/vaultStore';
-import { generateAESKey, createEnvelope } from '@/lib/crypto/aesGcm';
-import { wrapDEK } from '@/lib/crypto/keyWrap';
-import { deriveKeyHKDF } from '@/lib/crypto/hkdf';
-import { getPRFOutputByCredential, generateUserHandle, generatePRFSalt } from '@/lib/webauthn/prf';
+import { init as initWasm, wrapDEK, encryptRecord, deriveKEKFromPRF } from '@/lib/wasm/index';
+import { getPRFOutputByCredential, generateUserHandle, generatePRFSalt, createCredentialWithPRF } from '@/lib/webauthn/prf';
 import { base64urlEncode } from '@/lib/base64url';
+import type { VaultMetadata } from '@/lib/types/backup';
+
 interface ImportBackupDialogProps {
   trigger?: React.ReactNode;
 }
@@ -50,8 +50,8 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
   };
 
   const handleImport = async () => {
-    if (!backupData || !backupKey.trim()) {
-      setError('Please enter the backup key');
+    if (!backupData) {
+      setError('No backup file selected');
       return;
     }
 
@@ -59,14 +59,19 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
     setStep('creating');
 
     try {
-      // Step 1: Decrypt the backup
-      const result = await importBackup(backupData, backupKey.trim());
+      // Initialize WASM if needed
+      await initWasm();
+
+      // Step 1: Parse backup to get metadata
+      const backup = JSON.parse(backupData);
       
-      if (!result.success || !result.vault) {
-        setError(result.error || 'Failed to import backup');
+      if (backup.version !== '1.0') {
+        setError('Unsupported backup version');
         setStep('key');
         return;
       }
+
+      const metadata: VaultMetadata = backup.metadata;
 
       // Step 2: Create a new WebAuthn credential for this vault
       const userHandle = generateUserHandle();
@@ -75,7 +80,6 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
       // Create credential
       let credentialResult;
       try {
-        const { createCredentialWithPRF } = await import('@/lib/webauthn/prf');
         credentialResult = await createCredentialWithPRF(userHandle);
       } catch (err) {
         setError('Failed to create passkey. Please try again.');
@@ -89,25 +93,46 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
         return;
       }
 
-      // Step 3: Get PRF output and derive KEK
+      // Step 3: Get PRF output
       const prfOutput = await getPRFOutputByCredential(credentialResult.credentialId, prfSalt);
-      const kek = await deriveKeyHKDF(
-        prfOutput,
-        new Uint8Array(32),
-        'local-wallet-vault:kek:v1',
-        32
+
+      // Step 4: Derive KEK from PRF output
+      const kek = deriveKEKFromPRF(prfOutput);
+
+      // Step 5: Generate new DEK
+      const dek = generateDEK();
+
+      // Step 6: Wrap the DEK with KEK
+      const wrappedKeysJson = wrapDEK(kek, dek, metadata.vaultId);
+      const wrappedKeys = JSON.parse(wrappedKeysJson);
+
+      // Step 7: Decrypt the backup envelope with the backup key
+      // The backup key is the DEK that was used to encrypt the backup
+      // For now, we assume the backupKey is a base64url-encoded DEK
+      const backupDek = new Uint8Array(
+        Array.from(atob(backupKey.trim()), c => c.charCodeAt(0))
       );
 
-      // Step 4: Generate new DEK and wrap it
-      const dek = await generateAESKey();
-      const wrappedKeys = await wrapDEK(kek, dek, result.vault.vaultId);
+      // Step 8: Import the backup (decrypt with backup DEK)
+      const result = await importBackup(backupDek, backupData);
+      
+      if (!result.success || !result.vault) {
+        setError(result.error || 'Failed to import backup');
+        setStep('key');
+        return;
+      }
 
-      // Step 5: Create metadata
+      // Step 9: Re-encrypt the vault manifest with new DEK
+      const manifestJson = JSON.stringify(result.vault);
+      const manifestEnvelopeJson = await encryptRecord(dek, new TextEncoder().encode(manifestJson), metadata.vaultId, 'manifest');
+      const manifestEnvelope = JSON.parse(manifestEnvelopeJson);
+
+      // Step 10: Create new metadata with new credential
       const now = new Date().toISOString();
-      const metadata: import('@/lib/types/backup').VaultMetadata = {
+      const newMetadata: VaultMetadata = {
         schemaVersion: 1,
-        vaultId: result.vault.vaultId,
-        createdAt: now, // Use current time for new vault
+        vaultId: metadata.vaultId,
+        createdAt: metadata.createdAt, // Preserve original creation time
         updatedAt: now,
         rpId: window.location.hostname,
         credentialId: credentialResult.credentialId,
@@ -118,16 +143,8 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
         dataAlg: 'AES-GCM-256',
       };
 
-      // Step 6: Encrypt vault manifest
-      const manifestEnvelope = await createEnvelope(
-        dek,
-        new TextEncoder().encode(JSON.stringify(result.vault)),
-        result.vault.vaultId,
-        'manifest'
-      );
-
-      // Step 7: Save to OPFS
-      await saveVaultMetadata(metadata);
+      // Step 11: Save to OPFS
+      await saveVaultMetadata(newMetadata);
       await saveWrappedKeys(wrappedKeys);
       await saveManifest(manifestEnvelope);
 
@@ -159,13 +176,12 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
         <DialogHeader>
           <DialogTitle>Import Vault Backup</DialogTitle>
           <DialogDescription>
-            Restore your vault from an encrypted backup file
+            Restore your vault from a backup file. You'll need the backup key to decrypt it.
           </DialogDescription>
         </DialogHeader>
 
         {error && (
           <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -173,40 +189,30 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
         {step === 'upload' && (
           <div className="space-y-4">
             <Alert>
-              <AlertTitle>Important</AlertTitle>
               <AlertDescription>
-                Importing a backup will create a new vault with a new passkey. 
-                You will need both the backup file and the backup key.
+                Select a backup file (.json) that was exported from your vault.
+                You'll need the backup key that was shown when the backup was created.
               </AlertDescription>
             </Alert>
             <div className="space-y-2">
               <Label htmlFor="backup-file">Backup File</Label>
-              <input
-                ref={fileInputRef}
+              <Input
                 id="backup-file"
                 type="file"
                 accept=".json"
+                ref={fileInputRef}
                 onChange={handleFileSelect}
-                className="hidden"
               />
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {backupFile ? backupFile.name : 'Select Backup File'}
-              </Button>
             </div>
           </div>
         )}
 
-        {step === 'key' && (
+        {step === 'key' && backupFile && (
           <div className="space-y-4">
             <Alert>
-              <AlertTitle>Backup Key Required</AlertTitle>
               <AlertDescription>
-                Enter the backup key that was shown when you created the backup.
-                This is a base64url-encoded string.
+                Enter the backup key that was shown when this backup was created.
+                This key is required to decrypt your vault data.
               </AlertDescription>
             </Alert>
             <div className="space-y-2">
@@ -216,14 +222,14 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
                 type="password"
                 value={backupKey}
                 onChange={(e) => setBackupKey(e.target.value)}
-                placeholder="Enter your backup key..."
+                placeholder="Enter your backup key"
               />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('upload')}>
-                Back
+              <Button variant="outline" onClick={handleClose}>
+                Cancel
               </Button>
-              <Button className="flex-1" onClick={handleImport}>
+              <Button onClick={handleImport} disabled={!backupKey.trim()}>
                 Import Vault
               </Button>
             </div>
@@ -231,21 +237,23 @@ export function ImportBackupDialog({ trigger }: ImportBackupDialogProps) {
         )}
 
         {step === 'creating' && (
-          <div className="space-y-4 text-center">
-            <p className="text-muted-foreground">
-              Creating vault... Please complete the passkey authentication when prompted.
-            </p>
-            <div className="animate-pulse">Processing...</div>
+          <div className="space-y-4">
+            <Alert>
+              <AlertDescription>
+                Creating your vault... Please wait and do not close this window.
+                You may be prompted to authenticate with your passkey.
+              </AlertDescription>
+            </Alert>
           </div>
         )}
 
-        {step !== 'creating' && step !== 'key' && (
-          <DialogFooter>
+        <DialogFooter className="flex gap-2">
+          {step !== 'creating' && step !== 'key' && (
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-          </DialogFooter>
-        )}
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
