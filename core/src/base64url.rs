@@ -4,6 +4,7 @@
 //! Compatible with the TypeScript implementation in `base64url.ts`.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use rand::rngs::OsRng;
 use rand::RngCore;
 
 /// Encode a byte slice to base64url string (no padding)
@@ -21,7 +22,7 @@ pub fn base64url_decode(s: &str) -> Result<Vec<u8>, crate::Error> {
 /// Generate cryptographically random bytes
 pub fn generate_random_bytes(length: usize) -> Vec<u8> {
     let mut bytes = vec![0u8; length];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    OsRng.fill_bytes(&mut bytes);
     bytes
 }
 

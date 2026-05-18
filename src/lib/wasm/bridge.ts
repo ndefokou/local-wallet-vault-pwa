@@ -95,10 +95,15 @@ export async function createVaultWithPRF(): Promise<CreateVaultResult> {
     }
 
     // Step 4: Create vault using WASM (Rust - crypto)
+    // Generate timestamp in JavaScript (WASM doesn't support SystemTime)
+    const createdAt = new Date().toISOString();
+    const prfSaltBase64 = base64urlEncode(prfSalt);
     const wasmResult = wasm.createVault(
       prfOutput,
+      prfSaltBase64,
       credentialResult.credentialId,
-      base64urlEncode(userHandle)
+      base64urlEncode(userHandle),
+      createdAt
     );
 
     // Parse results

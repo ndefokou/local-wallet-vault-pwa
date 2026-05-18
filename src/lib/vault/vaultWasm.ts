@@ -22,6 +22,7 @@ import {
 } from '../webauthn/prf';
 import {
   init as initWasm,
+  isInitialized as isWasmInitialized,
   base64urlEncode,
   base64urlDecode,
   createVault as wasmCreateVault,
@@ -37,11 +38,42 @@ import type { CipherEnvelopeV1 } from '../types/envelope';
 // Re-export types
 export type { VaultMetadata, VaultPlaintextV1, WalletRecord, CipherEnvelopeV1 };
 
+// Track initialization state
+let wasmInitPromise: Promise<void> | null = null;
+let wasmReady = false;
+
 /**
  * Initialize the WASM module
+ * Must be called before any other functions
  */
 export async function init(): Promise<void> {
-  await initWasm();
+  if (wasmReady) return;
+  
+  if (wasmInitPromise) {
+    return wasmInitPromise;
+  }
+  
+  wasmInitPromise = initWasm().then(() => {
+    wasmReady = true;
+  });
+  
+  return wasmInitPromise;
+}
+
+/**
+ * Check if WASM module is initialized
+ */
+export function isInitialized(): boolean {
+  return wasmReady || isWasmInitialized();
+}
+
+/**
+ * Ensure WASM is initialized before operations
+ */
+function ensureInitialized(): void {
+  if (!isInitialized()) {
+    throw new Error('WASM module not initialized. Call init() first.');
+  }
 }
 
 // ============================================================================
@@ -66,6 +98,9 @@ export interface CreateVaultResult {
  */
 export async function createVault(): Promise<CreateVaultResult> {
   try {
+    // Ensure WASM is initialized
+    ensureInitialized();
+    
     // Step 1: Generate random user handle and PRF salt
     const userHandle = generateUserHandle();
     const prfSalt = generatePRFSalt();
@@ -102,10 +137,15 @@ export async function createVault(): Promise<CreateVaultResult> {
     }
 
     // Step 4: Create vault using WASM (Rust - crypto)
+    // Generate timestamp in JavaScript (WASM doesn't support SystemTime)
+    const createdAt = new Date().toISOString();
+    const prfSaltBase64 = base64urlEncode(prfSalt);
     const wasmResult = wasmCreateVault(
       prfOutput,
+      prfSaltBase64,
       credentialResult.credentialId,
-      base64urlEncode(userHandle)
+      base64urlEncode(userHandle),
+      createdAt
     );
 
     // Parse results
@@ -152,6 +192,9 @@ export interface UnlockVaultResult {
  */
 export async function unlockVault(): Promise<UnlockVaultResult> {
   try {
+    // Ensure WASM is initialized
+    ensureInitialized();
+    
     // Step 1: Check if vault exists
     const hasVault = await vaultExists();
     if (!hasVault) {
@@ -238,6 +281,7 @@ export async function encryptRecord(
   purpose: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
   try {
+    ensureInitialized();
     const envelopeJson = wasmEncryptRecord(dek, plaintext, vaultId, purpose);
     return { success: true, data: envelopeJson };
   } catch (error) {
@@ -258,6 +302,7 @@ export async function saveWalletRecord(
   vaultId: string
 ): Promise<{ success: boolean; envelope?: CipherEnvelopeV1; error?: string }> {
   try {
+    ensureInitialized();
     const plaintext = new TextEncoder().encode(JSON.stringify(recordData));
     const envelopeJson = wasmEncryptRecord(dek, plaintext, vaultId, recordId);
     const envelope: CipherEnvelopeV1 = JSON.parse(envelopeJson);
@@ -278,6 +323,7 @@ export async function loadWalletRecord(
   envelopeJson: string
 ): Promise<{ success: boolean; data?: WalletRecord; error?: string }> {
   try {
+    ensureInitialized();
     const plaintext = wasmDecryptRecord(dek, envelopeJson);
     const data: WalletRecord = JSON.parse(new TextDecoder().decode(plaintext));
     return { success: true, data };
@@ -297,6 +343,7 @@ export async function loadWalletRecord(
  * Generate a new DEK (Data Encryption Key)
  */
 export function generateDEK(): Uint8Array {
+  ensureInitialized();
   return generateAESKey();
 }
 
@@ -327,6 +374,7 @@ export async function createBackup(
   metadata: VaultMetadata
 ): Promise<{ success: boolean; backup?: string; error?: string }> {
   try {
+    ensureInitialized();
     // Encrypt the vault with the DEK
     const vaultJson = JSON.stringify(vault);
     const plaintext = new TextEncoder().encode(vaultJson);
@@ -371,6 +419,7 @@ export async function importBackup(
   backupJson: string
 ): Promise<{ success: boolean; vault?: VaultPlaintextV1; metadata?: VaultMetadata; error?: string }> {
   try {
+    ensureInitialized();
     const backup = JSON.parse(backupJson);
     
     if (backup.version !== '1.0') {

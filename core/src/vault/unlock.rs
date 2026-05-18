@@ -127,10 +127,12 @@ mod tests {
     fn test_unlock_vault() {
         // Create a vault first
         let prf_output = vec![1u8; 32];
+        let prf_salt = "test-prf-salt-base64url";
         let credential_id = "cred-123";
         let user_handle = "user-456";
+        let created_at = "2024-01-01T00:00:00Z";
 
-        let created = create_vault(&prf_output, credential_id, user_handle).unwrap();
+        let created = create_vault(&prf_output, prf_salt, credential_id, user_handle, created_at).unwrap();
 
         // Serialize for storage
         let metadata_json = serde_json::to_string(&created.metadata).unwrap();
@@ -148,7 +150,9 @@ mod tests {
     fn test_unlock_vault_wrong_prf() {
         // Create a vault
         let prf_output = vec![1u8; 32];
-        let created = create_vault(&prf_output, "cred", "user").unwrap();
+        let prf_salt = "test-prf-salt-base64url";
+        let created_at = "2024-01-01T00:00:00Z";
+        let created = create_vault(&prf_output, prf_salt, "cred", "user", created_at).unwrap();
 
         // Try to unlock with wrong PRF output
         let wrong_prf = vec![2u8; 32];

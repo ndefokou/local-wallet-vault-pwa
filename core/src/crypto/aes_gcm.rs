@@ -6,6 +6,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
+use rand::rngs::OsRng;
 use rand::RngCore;
 
 use crate::base64url::base64url_encode;
@@ -20,7 +21,7 @@ const NONCE_LENGTH: usize = 12;
 /// Returns 32 bytes of random key material
 pub fn generate_aes_key() -> Vec<u8> {
     let mut key = vec![0u8; 32];
-    rand::thread_rng().fill_bytes(&mut key);
+    OsRng.fill_bytes(&mut key);
     key
 }
 

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, ty
 import type { VaultMetadata } from '../types/backup';
 import type { VaultPlaintextV1, WalletRecord } from '../types/vault';
 import { loadVaultMetadata, vaultExists, saveManifest } from '../opfs/vaultStore';
-import { unlockVault as unlockVaultCore, encryptRecord } from './vaultWasm';
+import { init as initWasm, unlockVault as unlockVaultCore, encryptRecord } from './vaultWasm';
 import { LockTimer, ActivityTracker } from '../security/lockTimer';
 
 export type VaultState = 
@@ -30,10 +30,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [metadata, setMetadata] = useState<VaultMetadata | null>(null);
   const [dek, setDek] = useState<Uint8Array | null>(null);
   const [vault, setVault] = useState<VaultPlaintextV1 | null>(null);
+  const [wasmInitialized, setWasmInitialized] = useState(false);
+  const [wasmError, setWasmError] = useState<string | null>(null);
   
   // Lock timer refs
   const lockTimerRef = useRef<LockTimer | null>(null);
   const activityTrackerRef = useRef<ActivityTracker | null>(null);
+
+  // Initialize WASM module
+  useEffect(() => {
+    initWasm()
+      .then(() => {
+        setWasmInitialized(true);
+        console.log('WASM module initialized successfully');
+      })
+      .catch((error) => {
+        console.error('Failed to initialize WASM module:', error);
+        setWasmError(error instanceof Error ? error.message : 'Failed to initialize WASM module');
+      });
+  }, []);
 
   // Initialize lock timer
   useEffect(() => {
@@ -65,6 +80,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [state.status]);
 
   const refreshState = useCallback(async () => {
+    // Wait for WASM to be initialized
+    if (!wasmInitialized) {
+      return;
+    }
+    
+    if (wasmError) {
+      setState({ status: 'error', error: wasmError });
+      return;
+    }
+    
     try {
       const hasVault = await vaultExists();
       if (hasVault) {
@@ -79,7 +104,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       console.error('Failed to refresh vault state:', error);
       setState({ status: 'error', error: 'Failed to check vault status' });
     }
-  }, []);
+  }, [wasmInitialized, wasmError]);
 
   useEffect(() => {
     refreshState();

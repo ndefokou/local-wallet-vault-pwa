@@ -93,7 +93,9 @@ pub fn serialize_envelope(envelope: &CipherEnvelopeV1) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::crypto::generate_aes_key;
+
+use super::*;
 
     #[test]
     fn test_wrap_unwrap_dek() {
@@ -136,6 +138,6 @@ mod tests {
 
         assert_eq!(parsed.magic, envelope.magic);
         assert_eq!(parsed.version, envelope.version);
-        assert_eq!(parsed.vault_id(), envelope.vault_id());
+        assert_eq!(parsed.aad.vault_id, envelope.aad.vault_id);
     }
 }

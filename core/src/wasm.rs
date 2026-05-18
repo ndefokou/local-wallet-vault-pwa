@@ -141,8 +141,8 @@ pub fn wasm_decrypt_envelope(key: &[u8], envelope_json: &str) -> Result<Vec<u8>,
 
 /// Create a new vault
 #[wasm_bindgen]
-pub fn wasm_create_vault(prf_output: &[u8], credential_id: &str, user_handle: &str) -> Result<JsValue, JsValue> {
-    let result = create_vault(prf_output, credential_id, user_handle)
+pub fn wasm_create_vault(prf_output: &[u8], prf_salt: &str, credential_id: &str, user_handle: &str, created_at: &str) -> Result<JsValue, JsValue> {
+    let result = create_vault(prf_output, prf_salt, credential_id, user_handle, created_at)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
     
     let obj = js_sys::Object::new();

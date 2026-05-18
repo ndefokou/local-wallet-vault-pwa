@@ -71,13 +71,19 @@ pub struct VaultMetadata {
 
 impl VaultMetadata {
     /// Create new vault metadata
-    pub fn new(vault_id: String, credential_id: String, user_handle: String, prf_salt: String) -> Self {
-        let now = current_timestamp();
+    ///
+    /// # Arguments
+    /// * `vault_id` - Unique vault identifier
+    /// * `credential_id` - WebAuthn credential ID (base64url)
+    /// * `user_handle` - WebAuthn user handle (base64url)
+    /// * `prf_salt` - PRF salt (base64url)
+    /// * `created_at` - ISO 8601 timestamp (provided from JavaScript)
+    pub fn new(vault_id: String, credential_id: String, user_handle: String, prf_salt: String, created_at: String) -> Self {
         Self {
             schema_version: 1,
             vault_id,
-            created_at: now.clone(),
-            updated_at: now,
+            created_at: created_at.clone(),
+            updated_at: created_at,
             rp_id: "localhost".to_string(), // Will be set from JS
             credential_id,
             credential_user_handle: user_handle,
@@ -100,6 +106,11 @@ impl VaultMetadata {
 }
 
 /// Generate current ISO 8601 timestamp
+///
+/// Note: In WASM, SystemTime::now() is not supported, so this function
+/// should not be used in WASM builds. Use JavaScript's `new Date().toISOString()`
+/// instead and pass the timestamp to Rust functions.
+#[cfg(not(target_arch = "wasm32"))]
 fn current_timestamp() -> String {
     // Simple ISO 8601 timestamp without chrono dependency
     // In production, use chrono or time crate
@@ -122,6 +133,7 @@ mod tests {
             "cred-456".to_string(),
             "user-789".to_string(),
             "salt-abc".to_string(),
+            "2024-01-01T00:00:00Z".to_string(),
         );
 
         let json = serde_json::to_string(&metadata).unwrap();
@@ -138,7 +150,7 @@ mod tests {
     fn test_backup_package_serialization() {
         let envelope = CipherEnvelopeV1::new(
             "vault-123".to_string(),
-            super::EnvelopePurpose::Backup,
+            crate::types::EnvelopePurpose::Backup,
             vec![0u8; 12],
             vec![1u8; 32],
         );

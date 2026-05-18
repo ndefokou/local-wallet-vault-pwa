@@ -38,12 +38,11 @@ pub struct CreateVaultResult {
 /// CreateVaultResult containing all data needed to persist the vault
 pub fn create_vault(
     prf_output: &[u8],
+    prf_salt: &str,
     credential_id: &str,
     user_handle: &str,
+    created_at: &str,
 ) -> Result<CreateVaultResult> {
-    // Generate PRF salt
-    let prf_salt = generate_random_base64url(32);
-
     // Generate vault ID
     let vault_id = generate_random_base64url(32);
 
@@ -54,18 +53,20 @@ pub fn create_vault(
     let dek = generate_aes_key();
 
     // Create vault metadata
+    // Note: prf_salt is passed from TypeScript (generated there for WebAuthn PRF)
     let metadata = VaultMetadata::new(
         vault_id.clone(),
         credential_id.to_string(),
         user_handle.to_string(),
-        prf_salt,
+        prf_salt.to_string(),
+        created_at.to_string(),
     );
 
     // Wrap DEK with KEK
     let wrapped_keys = wrap_dek(&kek, &dek, &vault_id)?;
 
     // Create initial empty vault
-    let vault = VaultPlaintextV1::new(vault_id.clone());
+    let vault = VaultPlaintextV1::new(vault_id.clone(), created_at.to_string());
 
     // Encrypt vault manifest with DEK
     let manifest = create_envelope(
@@ -101,10 +102,12 @@ mod tests {
     #[test]
     fn test_create_vault() {
         let prf_output = vec![1u8; 32];
+        let prf_salt = "test-prf-salt-base64url";
         let credential_id = "cred-123";
         let user_handle = "user-456";
+        let created_at = "2024-01-01T00:00:00Z";
 
-        let result = create_vault(&prf_output, credential_id, user_handle).unwrap();
+        let result = create_vault(&prf_output, prf_salt, credential_id, user_handle, created_at).unwrap();
 
         assert_eq!(result.metadata.credential_id, credential_id);
         assert_eq!(result.metadata.credential_user_handle, user_handle);

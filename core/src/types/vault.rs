@@ -130,14 +130,18 @@ pub enum SecretType {
 
 impl VaultPlaintextV1 {
     /// Create a new empty vault
-    pub fn new(vault_id: String) -> Self {
+    ///
+    /// # Arguments
+    /// * `vault_id` - Unique vault identifier
+    /// * `updated_at` - ISO 8601 timestamp (provided from JavaScript)
+    pub fn new(vault_id: String, updated_at: String) -> Self {
         Self {
             schema_version: 1,
             vault_id,
             profile: LocalProfile::default(),
             wallets: Vec::new(),
             preferences: VaultPreferences::default(),
-            updated_at: chrono_like_timestamp(),
+            updated_at,
         }
     }
 
@@ -152,25 +156,13 @@ impl VaultPlaintextV1 {
     }
 }
 
-/// Generate an ISO 8601 timestamp (simple implementation)
-fn chrono_like_timestamp() -> String {
-    // Use a simple timestamp format without chrono dependency
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = now.as_secs();
-    // Format: YYYY-MM-DDTHH:MM:SSZ (approximate)
-    // This is a simplified version - in production you'd use chrono or time crate
-    format!("{}Z", secs)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_vault_serialization() {
-        let vault = VaultPlaintextV1::new("vault-123".to_string());
+        let vault = VaultPlaintextV1::new("vault-123".to_string(), "2024-01-01T00:00:00Z".to_string());
         let json = serde_json::to_string(&vault).unwrap();
         assert!(json.contains("vaultId"));
         assert!(json.contains("schemaVersion"));
