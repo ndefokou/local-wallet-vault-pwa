@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Lock, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
 import { useVault } from '@/lib/vault';
 
 export function UnlockPage() {
@@ -43,9 +41,14 @@ export function UnlockPage() {
   // Show loading state while checking vault status
   if (state.status === 'unlocking') {
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-fade-in">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 text-amber-500 animate-spin" />
+          </div>
+        </div>
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Unlocking...</h1>
+          <h1 className="text-2xl font-bold">Unlocking...</h1>
           <p className="text-muted-foreground">
             Please complete the passkey authentication
           </p>
@@ -55,66 +58,73 @@ export function UnlockPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
+      {/* Animated Lock Icon */}
+      <div className="relative">
+        <div className="pulse-ring">
+          <div className="relative w-24 h-24 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg">
+            <Lock className="h-12 w-12 text-amber-500" />
+            {/* Amber glow effect */}
+            <div className="absolute inset-0 rounded-full bg-amber-500/10 animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Title */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Unlock Your Vault</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold">Unlock Your Vault</h1>
+        <p className="text-muted-foreground max-w-xs">
           Use your passkey to unlock your encrypted vault
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Locked</CardTitle>
-          <CardDescription>
-            Your vault is encrypted and requires passkey authentication
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Click the button below to authenticate with your passkey. 
-            Your passkey will be used to derive the encryption key needed 
-            to unlock your vault.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            <strong>Note:</strong> You will be prompted by your browser or device 
-            to authenticate using your passkey (biometric, PIN, or security key).
-          </p>
-        </CardContent>
-      </Card>
+      {/* Info Card */}
+      <div className="w-full max-w-sm space-y-4">
+        <div className="surface p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <ShieldCheck className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Passkey Authentication</p>
+              <p className="text-xs text-muted-foreground">
+                Biometric or security key required
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
+      {/* Error State */}
       {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Unlock Failed</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="w-full max-w-sm p-4 rounded-2xl bg-red-500/10 border border-red-500/25">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        <Button 
-          size="lg" 
-          className="w-full"
+      {/* Unlock Button */}
+      <div className="w-full max-w-sm space-y-3">
+        <button
           onClick={handleUnlock}
           disabled={isUnlocking}
+          className="btn-amber w-full relative overflow-hidden"
         >
           {isUnlocking ? (
             <>
-              <span className="animate-spin mr-2">⏳</span>
-              Authenticating...
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Verifying...</span>
             </>
           ) : (
-            'Unlock with Passkey'
+            <>
+              <Fingerprint className="h-5 w-5" />
+              <span>Unlock with Passkey</span>
+            </>
           )}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="lg" 
-          className="w-full"
-          onClick={() => navigate('/')}
-          disabled={isUnlocking}
-        >
-          Back to Home
-        </Button>
+        </button>
+
+        <p className="text-xs text-center text-muted-foreground">
+          You'll be prompted by your browser or device to authenticate
+        </p>
       </div>
     </div>
   );

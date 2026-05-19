@@ -16,6 +16,7 @@ export function DashboardPage() {
   const { state, metadata, lock, addWallet, updateWallet, deleteWallet } = useVault();
   const navigate = useNavigate();
   const [isAddingWallet, setIsAddingWallet] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingWallet, setEditingWallet] = useState<WalletRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +35,7 @@ export function DashboardPage() {
   };
 
   const handleAddWallet = async (walletData: Omit<WalletRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
-    setIsAddingWallet(true);
+    setIsSaving(true);
     setError(null);
     
     try {
@@ -42,14 +43,16 @@ export function DashboardPage() {
       setIsAddingWallet(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add wallet');
-      setIsAddingWallet(false);
       throw err;
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateWallet = async (walletData: Omit<WalletRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingWallet) return;
     
+    setIsSaving(true);
     setError(null);
     try {
       await updateWallet(editingWallet.id, walletData);
@@ -57,6 +60,8 @@ export function DashboardPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update wallet');
       throw err;
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -153,7 +158,7 @@ export function DashboardPage() {
                 <WalletRecordForm
                   onSave={handleAddWallet}
                   onCancel={() => setIsAddingWallet(false)}
-                  isSaving={isAddingWallet}
+                  isSaving={isSaving}
                 />
               </CardContent>
             </Card>
@@ -173,6 +178,7 @@ export function DashboardPage() {
                   wallet={editingWallet}
                   onSave={handleUpdateWallet}
                   onCancel={() => setEditingWallet(null)}
+                  isSaving={isSaving}
                 />
               </CardContent>
             </Card>

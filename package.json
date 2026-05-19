@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:wasm && tsc -b && vite build",
+    "build": "npm run build:wasm && npm run build:icons && tsc -b && vite build",
     "build:wasm": "cd core && wasm-pack build --target web --out-dir ../src/lib/wasm/pkg",
     "build:wasm:release": "cd core && wasm-pack build --target web --out-dir ../src/lib/wasm/pkg --release",
+    "build:icons": "node scripts/generate-icons.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.3",
     "vite": "^5.4.2",

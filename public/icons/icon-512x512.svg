@@ -1,4 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#3b82f6"/>
-  <text x="256" y="280" text-anchor="middle" fill="white" font-size="128" font-family="system-ui">🔐</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="lock" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="85" fill="url(#bg)"/>
+  <!-- Vault/Box -->
+  <rect x="96" y="203" width="320" height="213" rx="21" fill="#1e293b" stroke="#fbbf24" stroke-width="11"/>
+  <!-- Lock -->
+  <circle cx="256" cy="310" r="53" fill="url(#lock)"/>
+  <rect x="235" y="288" width="42" height="53" rx="5" fill="#1e293b"/>
+  <!-- Keyhole -->
+  <circle cx="256" cy="299" r="11" fill="#1e293b"/>
+  <rect x="250" y="299" width="11" height="21" fill="#1e293b"/>
+  <!-- Handle -->
+  <path d="M203 203 L203 160 Q203 117 256 117 Q309 117 309 160 L309 203" fill="none" stroke="#fbbf24" stroke-width="16" stroke-linecap="round"/>
 </svg>

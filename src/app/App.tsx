@@ -6,19 +6,25 @@ import { CreateVaultPage } from '@/pages/CreateVaultPage';
 import { UnlockPage } from '@/pages/UnlockPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ThreatModelPage } from '@/pages/ThreatModelPage';
+import { InstallPrompt, UpdatePrompt, OfflineIndicator } from '@/lib/pwa';
 
 function App() {
   return (
-    <MainLayout>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/capability-check" element={<CapabilityCheckPage />} />
-        <Route path="/create-vault" element={<CreateVaultPage />} />
-        <Route path="/unlock" element={<UnlockPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/threat-model" element={<ThreatModelPage />} />
-      </Routes>
-    </MainLayout>
+    <>
+      <MainLayout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/capability-check" element={<CapabilityCheckPage />} />
+          <Route path="/create-vault" element={<CreateVaultPage />} />
+          <Route path="/unlock" element={<UnlockPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/threat-model" element={<ThreatModelPage />} />
+        </Routes>
+      </MainLayout>
+      <InstallPrompt />
+      <UpdatePrompt />
+      <OfflineIndicator />
+    </>
   );
 }
 

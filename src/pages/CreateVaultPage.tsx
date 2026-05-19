@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Fingerprint, Key, Database, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
 import { createVault } from '@/lib/vault';
+import { useVault } from '@/lib/vault';
 
 export function CreateVaultPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { refreshState } = useVault();
 
   const handleCreateVault = async () => {
     setIsCreating(true);
@@ -18,6 +18,8 @@ export function CreateVaultPage() {
       const result = await createVault();
       
       if (result.success) {
+        // Refresh the vault state so the app knows a vault now exists
+        await refreshState();
         // Navigate to unlock page after successful creation
         navigate('/unlock');
       } else {
@@ -31,99 +33,107 @@ export function CreateVaultPage() {
     }
   };
 
+  const steps = [
+    {
+      icon: Fingerprint,
+      title: 'Passkey Creation',
+      description: 'Create a passkey using your device\'s biometric or security key.',
+    },
+    {
+      icon: Key,
+      title: 'Key Derivation',
+      description: 'The passkey\'s PRF output derives an AES-256-GCM encryption key.',
+    },
+    {
+      icon: Database,
+      title: 'Local Storage',
+      description: 'Your encrypted vault is stored in the browser\'s OPFS.',
+    },
+  ];
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Create Your Vault</h1>
+        <h1 className="text-2xl font-bold">Create Your Vault</h1>
         <p className="text-muted-foreground">
           Set up a new encrypted vault protected by WebAuthn
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>How It Works</CardTitle>
-          <CardDescription>
-            Your vault will be encrypted and stored locally in your browser
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <h3 className="font-semibold">1. Passkey Creation</h3>
-            <p className="text-sm text-muted-foreground">
-              You'll be prompted to create a passkey using your device's biometric 
-              or security key.
-            </p>
+      {/* Step Indicator */}
+      <div className="space-y-4">
+        {steps.map((step, index) => (
+          <div 
+            key={index} 
+            className="flex items-start gap-4 p-4 rounded-2xl surface animate-fade-in"
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center">
+              <step.icon className="h-5 w-5 text-amber-500" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-amber-500">Step {index + 1}</span>
+              </div>
+              <h3 className="font-semibold text-sm">{step.title}</h3>
+              <p className="text-xs text-muted-foreground">{step.description}</p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold">2. Key Derivation</h3>
-            <p className="text-sm text-muted-foreground">
-              The passkey's PRF output will be used to derive an encryption key.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold">3. Local Storage</h3>
-            <p className="text-sm text-muted-foreground">
-              Your encrypted vault will be stored in the browser's Origin Private 
-              File System (OPFS).
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-yellow-600">⚠️ Important Warnings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            <strong>Local-only storage:</strong> This vault is stored only in this browser profile. 
-            There is no server copy. If you clear site data, lose this browser profile, or delete 
-            the passkey, you may lose access unless you export a backup.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            <strong>Not for production secrets:</strong> Do not store production seed phrases or 
-            high-value private keys in this PoC. Secret storage is experimental.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            <strong>XSS vulnerability:</strong> This PoC protects encrypted files at rest. It does 
-            not protect against malicious JavaScript running on this origin.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Warning Callout */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-3 animate-fade-in delay-200">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <span className="font-semibold text-amber-500">Important Warnings</span>
+        </div>
+        <ul className="space-y-2 text-xs text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-amber-500 mt-0.5">•</span>
+            <span><strong>Local-only storage:</strong> Data is stored only in this browser. Clearing site data will delete your vault.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-amber-500 mt-0.5">•</span>
+            <span><strong>Not for production:</strong> Do not store production seed phrases or high-value private keys.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-amber-500 mt-0.5">•</span>
+            <span><strong>XSS vulnerability:</strong> This PoC does not protect against malicious JavaScript on this origin.</span>
+          </li>
+        </ul>
+      </div>
 
+      {/* Error State */}
       {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/25 animate-fade-in">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        <Button 
-          size="lg" 
-          className="w-full" 
+      {/* CTA Button */}
+      <div className="space-y-3 animate-fade-in delay-300">
+        <button
           onClick={handleCreateVault}
           disabled={isCreating}
+          className="btn-amber w-full"
         >
           {isCreating ? (
             <>
-              <span className="animate-spin mr-2">⏳</span>
-              Creating Vault...
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Creating Vault...</span>
             </>
           ) : (
-            'Create New Vault'
+            <>
+              <Fingerprint className="h-5 w-5" />
+              <span>Create Vault with Passkey</span>
+            </>
           )}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="lg" 
-          className="w-full"
-          onClick={() => navigate('/capability-check')}
-          disabled={isCreating}
-        >
-          Back to Capability Check
-        </Button>
+        </button>
+        <p className="text-xs text-center text-muted-foreground">
+          You'll be prompted to create a passkey using your device
+        </p>
       </div>
     </div>
   );
