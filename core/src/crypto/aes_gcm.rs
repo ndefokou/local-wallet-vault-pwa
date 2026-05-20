@@ -9,7 +9,6 @@ use aes_gcm::{
 use rand::rngs::OsRng;
 use rand::RngCore;
 
-use crate::base64url::base64url_encode;
 use crate::error::{Error, Result};
 use crate::types::{CipherEnvelopeV1, EnvelopePurpose};
 
@@ -98,27 +97,21 @@ pub fn create_envelope(
     vault_id: String,
     purpose: EnvelopePurpose,
 ) -> Result<CipherEnvelopeV1> {
-    // Create AAD for the envelope
-    let aad = EnvelopeAad {
-        vault_id: vault_id.clone(),
-        purpose: purpose.clone(),
-        schema_version: 1,
-        record_id: None,
-        revision: None,
-    };
-    let aad_bytes = serde_json::to_vec(&aad)?;
+    use crate::types::create_aad_bytes;
+    
+    // Create AAD bytes (serialized once, stored as base64)
+    let aad_bytes = create_aad_bytes(vault_id.clone(), purpose.clone())?;
 
     // Encrypt the plaintext
     let (ciphertext, nonce) = encrypt_aes_gcm(key, plaintext, &aad_bytes)?;
 
-    Ok(CipherEnvelopeV1 {
-        magic: "LWV_ENVELOPE".to_string(),
-        version: 1,
-        alg: "AES-GCM-256".to_string(),
-        nonce: base64url_encode(&nonce),
-        aad,
-        ciphertext: base64url_encode(&ciphertext),
-    })
+    Ok(CipherEnvelopeV1::new_with_aad(
+        vault_id,
+        purpose,
+        nonce,
+        ciphertext,
+        aad_bytes,
+    ))
 }
 
 /// Decrypt a cipher envelope
@@ -141,8 +134,6 @@ pub fn decrypt_envelope(key: &[u8], envelope: &CipherEnvelopeV1) -> Result<Vec<u
     // Decrypt
     decrypt_aes_gcm(key, &ciphertext, &nonce, &aad_bytes)
 }
-
-use crate::types::EnvelopeAad;
 
 #[cfg(test)]
 mod tests {

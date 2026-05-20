@@ -171,6 +171,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const envelope = JSON.parse(result.data);
       await saveManifest(envelope);
       setVault(updatedVault);
+      // Update state to include the new vault data
+      setState({ status: 'unlocked', vault: updatedVault, dek });
     } else {
       throw new Error(result.error || 'Failed to save vault');
     }

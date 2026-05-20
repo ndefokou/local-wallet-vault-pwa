@@ -43,6 +43,23 @@ let wasmInitPromise: Promise<void> | null = null;
 let wasmReady = false;
 
 /**
+ * Extract error message from various error types
+ * WASM errors are often thrown as strings or JsValue, not Error instances
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return 'Unknown error';
+}
+
+/**
  * Initialize the WASM module
  * Must be called before any other functions
  */
@@ -166,7 +183,7 @@ export async function createVault(): Promise<CreateVaultResult> {
     console.error('Vault creation failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during vault creation',
+      error: getErrorMessage(error) || 'Unknown error during vault creation',
     };
   }
 }
@@ -262,7 +279,7 @@ export async function unlockVault(): Promise<UnlockVaultResult> {
     console.error('Vault unlock failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during vault unlock',
+      error: getErrorMessage(error) || 'Unknown error during vault unlock',
     };
   }
 }
@@ -287,7 +304,7 @@ export async function encryptRecord(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to encrypt record',
+      error: getErrorMessage(error) || 'Failed to encrypt record',
     };
   }
 }
@@ -310,7 +327,7 @@ export async function saveWalletRecord(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to encrypt record',
+      error: getErrorMessage(error) || 'Failed to encrypt record',
     };
   }
 }
@@ -330,7 +347,7 @@ export async function loadWalletRecord(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to decrypt record',
+      error: getErrorMessage(error) || 'Failed to decrypt record',
     };
   }
 }
@@ -391,7 +408,7 @@ export async function createBackup(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create backup',
+      error: getErrorMessage(error) || 'Failed to create backup',
     };
   }
 }
@@ -434,7 +451,7 @@ export async function importBackup(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to import backup',
+      error: getErrorMessage(error) || 'Failed to import backup',
     };
   }
 }

@@ -103,17 +103,28 @@ pub fn encrypt_record(
     vault_id: &str,
     record_id: &str,
 ) -> Result<CipherEnvelopeV1> {
-    let mut envelope = crate::crypto::aes_gcm::create_envelope(
-        dek,
-        plaintext,
+    use crate::types::EnvelopeAad;
+    
+    // Create AAD with record ID included
+    let aad = EnvelopeAad {
+        vault_id: vault_id.to_string(),
+        purpose: crate::types::EnvelopePurpose::WalletRecord,
+        schema_version: 1,
+        record_id: Some(record_id.to_string()),
+        revision: None,
+    };
+    let aad_bytes = serde_json::to_vec(&aad)?;
+    
+    // Encrypt the plaintext
+    let (ciphertext, nonce) = crate::crypto::aes_gcm::encrypt_aes_gcm(dek, plaintext, &aad_bytes)?;
+    
+    Ok(CipherEnvelopeV1::new_with_aad(
         vault_id.to_string(),
         crate::types::EnvelopePurpose::WalletRecord,
-    )?;
-
-    // Set record ID in AAD
-    envelope.aad.record_id = Some(record_id.to_string());
-
-    Ok(envelope)
+        nonce,
+        ciphertext,
+        aad_bytes,
+    ))
 }
 
 #[cfg(test)]

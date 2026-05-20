@@ -7,7 +7,7 @@ mod envelope;
 mod vault;
 
 pub use backup::{BackupPackageV1, VaultMetadata};
-pub use envelope::{CipherEnvelopeV1, EnvelopeAad, EnvelopePurpose};
+pub use envelope::{CipherEnvelopeV1, EnvelopeAad, EnvelopePurpose, create_aad_bytes};
 pub use vault::{
     ExperimentalSecretPayload, LocalProfile, VaultPlaintextV1, VaultPreferences, WalletAddress,
     WalletRecord,

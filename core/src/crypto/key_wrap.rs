@@ -4,7 +4,7 @@
 
 use crate::crypto::aes_gcm::{decrypt_aes_gcm, encrypt_aes_gcm};
 use crate::error::{Error, Result};
-use crate::types::{CipherEnvelopeV1, EnvelopeAad, EnvelopePurpose};
+use crate::types::{CipherEnvelopeV1, EnvelopePurpose, create_aad_bytes};
 
 /// Wrap a Data Encryption Key (DEK) with a Key Encryption Key (KEK)
 ///
@@ -16,27 +16,19 @@ use crate::types::{CipherEnvelopeV1, EnvelopeAad, EnvelopePurpose};
 /// # Returns
 /// CipherEnvelopeV1 containing the wrapped DEK
 pub fn wrap_dek(kek: &[u8], dek: &[u8], vault_id: &str) -> Result<CipherEnvelopeV1> {
-    // Create AAD for the wrap
-    let aad = EnvelopeAad {
-        vault_id: vault_id.to_string(),
-        purpose: EnvelopePurpose::DekWrap,
-        schema_version: 1,
-        record_id: None,
-        revision: None,
-    };
-    let aad_bytes = serde_json::to_vec(&aad)?;
+    // Create AAD bytes (serialized once, stored as base64)
+    let aad_bytes = create_aad_bytes(vault_id.to_string(), EnvelopePurpose::DekWrap)?;
 
     // Encrypt the DEK
     let (ciphertext, nonce) = encrypt_aes_gcm(kek, dek, &aad_bytes)?;
 
-    Ok(CipherEnvelopeV1 {
-        magic: "LWV_ENVELOPE".to_string(),
-        version: 1,
-        alg: "AES-GCM-256".to_string(),
-        nonce: crate::base64url::base64url_encode(&nonce),
-        aad,
-        ciphertext: crate::base64url::base64url_encode(&ciphertext),
-    })
+    Ok(CipherEnvelopeV1::new_with_aad(
+        vault_id.to_string(),
+        EnvelopePurpose::DekWrap,
+        nonce,
+        ciphertext,
+        aad_bytes,
+    ))
 }
 
 /// Unwrap a Data Encryption Key (DEK) with a Key Encryption Key (KEK)
@@ -51,14 +43,16 @@ pub fn unwrap_dek(kek: &[u8], envelope: &CipherEnvelopeV1) -> Result<Vec<u8>> {
     // Validate envelope
     envelope.validate()?;
 
-    if envelope.aad.purpose != EnvelopePurpose::DekWrap {
+    // Parse AAD to check purpose
+    let aad = envelope.aad()?;
+    if aad.purpose != EnvelopePurpose::DekWrap {
         return Err(Error::InvalidEnvelopePurpose(format!(
             "{:?}",
-            envelope.aad.purpose
+            aad.purpose
         )));
     }
 
-    // Get nonce and ciphertext
+    // Get nonce, ciphertext, and AAD bytes
     let nonce = envelope.nonce_bytes()?;
     let ciphertext = envelope.ciphertext_bytes()?;
     let aad_bytes = envelope.aad_bytes()?;
