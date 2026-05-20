@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Local Wallet Vault</title>
+  <script>
+    // Single Page Apps for GitHub Pages
+    // MIT License
+    // https://github.com/rafgraph/spa-github-pages
+    // This script takes the current URL and converts the path and query
+    // string into just a query string, and then redirects the browser
+    // to the new URL with only a query string and hash fragment.
+    // For example: /local-wallet-vault-pwa/some/path?q=param
+    // Becomes: /local-wallet-vault-pwa/?/some/path&q=param
+    
+    var pathSegmentsToKeep = 1; // Keep one segment (the repo name)
+    
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') +
+      '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, 'and') : '') +
+      l.hash
+    );
+  </script>
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=/local-wallet-vault-pwa/">
+  </noscript>
+</head>
+<body>
+  <p>Redirecting to <a href="/local-wallet-vault-pwa/">Local Wallet Vault</a>...</p>
+</body>
+</html>

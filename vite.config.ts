@@ -27,8 +27,14 @@ const serveManifestDev = (): Plugin => ({
   }
 });
 
+// Base path for GitHub Pages deployment
+const basePath = process.env.GITHUB_PAGES ? '/local-wallet-vault-pwa/' : '/';
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Base path for GitHub Pages deployment
+  // For local development, this can be set to '/' or removed
+  base: basePath,
   plugins: [
     wasm(),
     topLevelAwait(),
@@ -45,8 +51,8 @@ export default defineConfig({
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
+        scope: basePath,
+        start_url: basePath,
         id: 'local-wallet-vault-pwa',
         icons: [
           {
@@ -116,13 +122,13 @@ export default defineConfig({
             name: 'Create Vault',
             short_name: 'Create',
             description: 'Create a new wallet vault',
-            url: '/create-vault'
+            url: `${basePath}create-vault`
           },
           {
             name: 'Unlock Vault',
             short_name: 'Unlock',
             description: 'Unlock your wallet vault',
-            url: '/unlock'
+            url: `${basePath}unlock`
           }
         ]
       },
@@ -131,7 +137,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm}'],
         // For SPA, serve index.html for navigation requests
         // This allows client-side routing to work
-        navigateFallback: '/index.html',
+        navigateFallback: 'index.html',
         // Don't fallback for these paths
         navigateFallbackDenylist: [/^\/api/, /\/opfs/, /\.enc\.json$/, /\.wasm$/],
         // Skip waiting for immediate activation
