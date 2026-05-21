@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Fingerprint, Key, Database, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
+import { Fingerprint, Key, Database, AlertTriangle, Loader2 } from 'lucide-react';
 import { createVault } from '@/lib/vault';
 import { useVault } from '@/lib/vault';
 

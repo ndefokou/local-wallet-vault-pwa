@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, Lock, Unlock, Fingerprint, Shield } from 'lucide-react';
+import { ShieldCheck, Lock, Unlock, Shield } from 'lucide-react';
 import { useVault } from '@/lib/vault';
 
 export function Header() {
